@@ -3,6 +3,7 @@ use std::error::Error;
 use std::path::{Path, PathBuf};
 
 use clap::{command, Parser};
+use itertools::Itertools;
 
 #[derive(Parser, Debug)]
 #[command(version, about)]
@@ -21,12 +22,16 @@ fn read_csv(path: &Path) -> Result<(Vec<i32>, Vec<i32>), Box<dyn Error>> {
         .has_headers(false)
         .from_path(path)?;
 
-    let (mut left, mut right) = (vec![], vec![]);
-    for line in rdr.deserialize() {
-        let record: Record = line?;
-        left.push(record.left);
-        right.push(record.right);
-    }
+    let (left, right) = rdr
+        .deserialize()
+        .map(|line| {
+            let record: Result<Record, _> = line;
+            record
+        })
+        .collect::<Result<Vec<Record>, _>>()?
+        .into_iter()
+        .map(|record| (record.left, record.right))
+        .multiunzip();
 
     Ok((left, right))
 }
