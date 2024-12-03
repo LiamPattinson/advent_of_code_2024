@@ -12,8 +12,7 @@ struct Args {
 
 fn read_report(path: &Path) -> Result<Vec<Vec<i32>>, Box<dyn Error>> {
     Ok(std::fs::read_to_string(path)?
-        .split('\n')
-        .filter(|line| !line.is_empty())
+        .lines()
         .map(|line| {
             line.split(' ')
                 .map(|x| x.parse::<i32>())
