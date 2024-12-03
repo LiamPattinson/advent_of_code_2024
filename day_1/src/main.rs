@@ -18,22 +18,15 @@ struct Record {
 }
 
 fn read_csv(path: &Path) -> Result<(Vec<i32>, Vec<i32>), Box<dyn Error>> {
-    let mut rdr = csv::ReaderBuilder::new()
+    Ok(csv::ReaderBuilder::new()
         .has_headers(false)
-        .from_path(path)?;
-
-    let (left, right) = rdr
+        .from_path(path)?
         .deserialize()
-        .map(|line| {
-            let record: Result<Record, _> = line;
-            record
-        })
+        .map(|line| line as Result<Record, _>)
         .collect::<Result<Vec<Record>, _>>()?
         .into_iter()
         .map(|record| (record.left, record.right))
-        .multiunzip();
-
-    Ok((left, right))
+        .multiunzip())
 }
 
 fn difference(left: &[i32], right: &[i32]) -> i32 {
