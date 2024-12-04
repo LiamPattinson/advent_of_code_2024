@@ -5,3 +5,4 @@ Following [AoC2024](https://adventofcode.com/2024), and trying to git gud at Rus
 Extra challenges:
 - For loops? 👎 Unreadable chains of iterator adapters? 👍
 - Serde goes on everything
+- Never `unwrap()`, never `panic!`
