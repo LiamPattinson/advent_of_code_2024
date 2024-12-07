@@ -6,7 +6,6 @@ use clap::{command, Parser};
 use indicatif::{ParallelProgressIterator, ProgressStyle};
 use itertools::Itertools;
 use rayon::prelude::*;
-use rustc_hash::FxHashMap;
 
 #[derive(Parser, Debug)]
 #[command(version, about)]
@@ -89,13 +88,12 @@ fn convert(map: String) -> Result<Vec<Object>, Box<dyn Error>> {
 fn solve(map: &[Object], cols: usize, start_pos: usize, extra_obstruction: usize) -> Solution {
     let mut guard_idx = start_pos;
     let mut dir = Direction::Up;
-    let mut positions = FxHashMap::default();
+    let mut positions = vec![Direction::default(); map.len()];
     loop {
-        let directions = positions.entry(guard_idx).or_insert(Direction::default());
-        if directions.intersects(dir) {
+        if positions[guard_idx].intersects(dir) {
             return Solution::Infinite;
         }
-        directions.insert(dir);
+        positions[guard_idx].insert(dir);
 
         let next_idx = match dir {
             Direction::Up => guard_idx - cols,
@@ -115,7 +113,16 @@ fn solve(map: &[Object], cols: usize, start_pos: usize, extra_obstruction: usize
                 dir = d.rotate();
             }
             (_, Object::Edge) => {
-                return Solution::Finite(positions.len());
+                if extra_obstruction > 0 {
+                    return Solution::Finite(0);
+                } else {
+                    return Solution::Finite(
+                        positions
+                            .iter()
+                            .filter(|x| **x != Direction::default())
+                            .count(),
+                    );
+                }
             }
             _ => {
                 guard_idx = next_idx;
