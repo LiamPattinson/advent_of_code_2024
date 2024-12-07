@@ -1,11 +1,12 @@
-use std::collections::{BTreeSet, HashMap};
 use std::error::Error;
 use std::path::{Path, PathBuf};
 
+use bitflags::bitflags;
 use clap::{command, Parser};
 use indicatif::{ParallelProgressIterator, ProgressStyle};
 use itertools::Itertools;
 use rayon::prelude::*;
+use rustc_hash::FxHashMap;
 
 #[derive(Parser, Debug)]
 #[command(version, about)]
@@ -13,12 +14,15 @@ struct Args {
     input: PathBuf,
 }
 
-#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Copy, Clone)]
-enum Direction {
-    Up,
-    Down,
-    Left,
-    Right,
+bitflags! {
+    #[derive(Default, Debug, Eq, PartialEq, Copy, Clone)]
+    pub struct Direction: u8 {
+        const Up = 0b0000_0001;
+        const Down = 0b0000_0010;
+        const Left = 0b0000_0100;
+        const Right = 0b0000_1000;
+        const _ = !0;
+    }
 }
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
@@ -37,11 +41,12 @@ enum Object {
 
 impl Direction {
     fn rotate(&self) -> Self {
-        match self {
+        match *self {
             Self::Up => Self::Right,
             Self::Right => Self::Down,
             Self::Down => Self::Left,
             Self::Left => Self::Up,
+            _ => Self::default(), // Cheating here, should really return Result
         }
     }
 }
@@ -84,21 +89,20 @@ fn convert(map: String) -> Result<Vec<Object>, Box<dyn Error>> {
 fn solve(map: &[Object], cols: usize, start_pos: usize, extra_obstruction: usize) -> Solution {
     let mut guard_idx = start_pos;
     let mut dir = Direction::Up;
-    let mut positions = HashMap::new();
+    let mut positions = FxHashMap::default();
     loop {
-        if !positions
-            .entry(guard_idx)
-            .or_insert(BTreeSet::new())
-            .insert(dir)
-        {
+        let directions = positions.entry(guard_idx).or_insert(Direction::default());
+        if directions.intersects(dir) {
             return Solution::Infinite;
         }
+        directions.insert(dir);
 
         let next_idx = match dir {
             Direction::Up => guard_idx - cols,
             Direction::Right => guard_idx + 1,
             Direction::Down => guard_idx + cols,
             Direction::Left => guard_idx - 1,
+            _ => 0, // Cheating here, should return result
         };
         let next = if next_idx == extra_obstruction {
             Object::Obstruction
