@@ -8,7 +8,6 @@ use itertools::Itertools;
 #[derive(Parser, Debug)]
 #[command(version, about)]
 struct Args {
-    ordering: PathBuf,
     input: PathBuf,
 }
 
@@ -93,19 +92,18 @@ impl OrderRuleSet for HashSet<OrderRule> {
     }
 }
 
-fn read_order_rules(path: &Path) -> Result<HashSet<OrderRule>, Box<dyn Error>> {
+fn read_order_rules(s: &str) -> Result<HashSet<OrderRule>, Box<dyn Error>> {
     Ok(csv::ReaderBuilder::new()
         .has_headers(false)
         .delimiter(b'|')
-        .from_path(path)?
+        .from_reader(s.as_bytes())
         .deserialize()
         .map(|line| line as Result<OrderRule, _>)
         .collect::<Result<HashSet<OrderRule>, _>>()?)
 }
 
-fn read_manuals(path: &Path) -> Result<Vec<Vec<usize>>, Box<dyn Error>> {
-    Ok(std::fs::read_to_string(path)?
-        .lines()
+fn read_manuals(s: &str) -> Result<Vec<Vec<usize>>, Box<dyn Error>> {
+    Ok(s.lines()
         .map(|line| {
             line.split(',')
                 .map(|x| x.parse::<usize>())
@@ -114,10 +112,16 @@ fn read_manuals(path: &Path) -> Result<Vec<Vec<usize>>, Box<dyn Error>> {
         .collect::<Result<Vec<_>, _>>()?)
 }
 
+#[allow(clippy::type_complexity)]
+fn read_input(path: &Path) -> Result<(HashSet<OrderRule>, Vec<Vec<usize>>), Box<dyn Error>> {
+    let s = std::fs::read_to_string(path)?;
+    let parts = s.trim().split_once("\n\n").ok_or("Corrupted input file")?;
+    Ok((read_order_rules(parts.0)?, read_manuals(parts.1)?))
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
-    let order_rules = read_order_rules(args.ordering.as_path())?;
-    let manuals = read_manuals(args.input.as_path())?;
+    let (order_rules, manuals) = read_input(args.input.as_path())?;
 
     // Sort all into correct order
     let sorted_manuals = manuals
