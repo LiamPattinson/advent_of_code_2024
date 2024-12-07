@@ -1,13 +1,4 @@
-// A very inefficent implementation here...
-// Ways to speed it up:
-// - Don't copy the whole map every time, just put the guard back at the start.
-// - If the guard walks on a 'covered' tile facing a direction they've been in before,
-//   they must be in an infinite loop.
-// - You only need to check the tiles that were covered in the first part of the
-//   problem.
-// - No need to modify the map tiles as the guard walks in part 2.
-// - Maybe just work with u8 instead of the enums.
-// - Unwrap rather than passing Results everywhere.
+use std::collections::{BTreeSet, HashMap};
 use std::error::Error;
 use std::path::{Path, PathBuf};
 
@@ -21,7 +12,7 @@ struct Args {
     input: PathBuf,
 }
 
-#[derive(Debug, Eq, PartialEq, Copy, Clone)]
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Copy, Clone)]
 enum Direction {
     Up,
     Down,
@@ -30,36 +21,20 @@ enum Direction {
 }
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
-enum Status {
-    Empty,
-    Covered,
-}
-
-#[derive(Debug, Eq, PartialEq, Copy, Clone)]
 enum Solution {
-    Finished(usize),
-    InfiniteLoop,
+    Finite(usize),
+    Infinite,
 }
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
 enum Object {
-    Space(Status),
-    Guard(Direction),
+    Space,
     Obstruction,
     Edge,
-}
-
-impl Status {
-    fn new() -> Self {
-        Self::Empty
-    }
+    Guard,
 }
 
 impl Direction {
-    fn new() -> Self {
-        Self::Up
-    }
-
     fn rotate(&self) -> Self {
         match self {
             Self::Up => Self::Right,
@@ -73,21 +48,18 @@ impl Direction {
 impl Object {
     fn from(c: char) -> Result<Self, &'static str> {
         match c {
-            '.' => Ok(Self::Space(Status::new())),
-            '^' => Ok(Self::Guard(Direction::new())),
+            '.' => Ok(Self::Space),
             '#' => Ok(Self::Obstruction),
             '@' => Ok(Self::Edge),
-            _ => Err("Colonel... It's Metal Gear!"),
+            '^' => Ok(Self::Guard),
+            _ => Err("Snake, you've created a time paradox!"),
         }
-    }
-
-    fn is_guard(&self) -> bool {
-        matches!(self, Object::Guard(_))
     }
 }
 
 fn read_map(path: &Path) -> Result<Vec<String>, Box<dyn Error>> {
     Ok(std::fs::read_to_string(path)?
+        .trim()
         .lines()
         .map(|s| s.to_string())
         .collect_vec())
@@ -108,68 +80,53 @@ fn convert(map: String) -> Result<Vec<Object>, Box<dyn Error>> {
         .collect::<Result<Vec<_>, _>>()?)
 }
 
-fn advance(map: &mut [Object], cols: usize) -> Result<bool, &'static str> {
-    let guard_idx = map.iter().position(|&x| x.is_guard()).unwrap_or(0);
-    let guard = map[guard_idx];
-    let next_idx = match guard {
-        Object::Guard(Direction::Up) => Ok(guard_idx - cols),
-        Object::Guard(Direction::Right) => Ok(guard_idx + 1),
-        Object::Guard(Direction::Down) => Ok(guard_idx + cols),
-        Object::Guard(Direction::Left) => Ok(guard_idx - 1),
-        _ => Err("Snake, they're using active camo, get out of there!"),
-    }?;
-    let next = map[next_idx];
-    match (guard, next) {
-        (Object::Guard(_), Object::Space(_)) => {
-            map[next_idx] = guard;
-            map[guard_idx] = Object::Space(Status::Covered);
-            Ok(true)
+fn solve(map: &[Object], cols: usize, start_pos: usize, extra_obstruction: usize) -> Solution {
+    let mut guard_idx = start_pos;
+    let mut dir = Direction::Up;
+    let mut positions = HashMap::new();
+    loop {
+        if !positions
+            .entry(guard_idx)
+            .or_insert(BTreeSet::new())
+            .insert(dir)
+        {
+            return Solution::Infinite;
         }
-        (Object::Guard(direction), Object::Obstruction) => {
-            map[guard_idx] = Object::Guard(direction.rotate());
-            Ok(true)
+
+        let next_idx = match dir {
+            Direction::Up => guard_idx - cols,
+            Direction::Right => guard_idx + 1,
+            Direction::Down => guard_idx + cols,
+            Direction::Left => guard_idx - 1,
+        };
+        let next = if next_idx == extra_obstruction {
+            Object::Obstruction
+        } else {
+            map[next_idx]
+        };
+
+        match (dir, next) {
+            (d, Object::Obstruction) => {
+                dir = d.rotate();
+            }
+            (_, Object::Edge) => {
+                return Solution::Finite(positions.len());
+            }
+            _ => {
+                guard_idx = next_idx;
+            }
         }
-        (_, Object::Edge) => {
-            map[guard_idx] = Object::Space(Status::Covered);
-            Ok(false)
-        }
-        _ => Err("Snake, you've created a time paradox!"),
     }
 }
 
-fn solve(map: &mut [Object], cols: usize) -> Result<Solution, Box<dyn Error>> {
-    let mut on_map = true;
-    let mut count = 0;
-    while on_map {
-        on_map = advance(map, cols)?;
-        count += 1;
-        if count > 4 * map.len() {
-            // This is excessive!
-            return Ok(Solution::InfiniteLoop);
-        }
-    }
-    Ok(Solution::Finished(
-        map.iter()
-            .filter(|&x| *x == Object::Space(Status::Covered))
-            .count(),
-    ))
-}
-
-fn possible_obstructions(map: &[Object], cols: usize) -> Result<usize, Box<dyn Error>> {
-    Ok(map
-        .iter()
+fn possible_obstructions(map: &[Object], cols: usize, start_pos: usize) -> usize {
+    map.iter()
         .progress()
         .enumerate()
-        .filter(|(_, x)| matches!(x, Object::Space(_)))
-        .map(|(idx, _)| {
-            let mut new_map = map.to_vec();
-            new_map[idx] = Object::Obstruction;
-            solve(&mut new_map, cols)
-        })
-        .collect::<Result<Vec<_>, _>>()?
-        .iter()
-        .filter(|x| matches!(x, Solution::InfiniteLoop))
-        .count())
+        .filter(|(_, x)| matches!(x, Object::Space))
+        .map(|(idx, _)| solve(map, cols, start_pos, idx))
+        .filter(|x| matches!(x, Solution::Infinite))
+        .count()
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -181,10 +138,14 @@ fn main() -> Result<(), Box<dyn Error>> {
         .flat_map(|s| s.chars().collect_vec())
         .collect();
     let object_map = convert(flattened)?;
-    if let Solution::Finished(unique_tiles) = solve(&mut object_map.to_vec(), cols)? {
-        println!("Unique tiles: {unique_tiles}");
+    if let Some(start_pos) = object_map.iter().position(|&x| matches!(x, Object::Guard)) {
+        if let Solution::Finite(unique_tiles) = solve(&object_map, cols, start_pos, 0) {
+            println!("Unique tiles: {unique_tiles}");
+        }
+        let infinite_loops = possible_obstructions(&object_map, cols, start_pos);
+        println!("Infinite Loops: {infinite_loops}");
+        Ok(())
+    } else {
+        Err("What? Where are the guards?".into())
     }
-    let infinite_loops = possible_obstructions(&object_map, cols)?;
-    println!("Infinite Loops: {infinite_loops}");
-    Ok(())
 }
