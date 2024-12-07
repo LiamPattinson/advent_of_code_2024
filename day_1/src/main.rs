@@ -18,9 +18,10 @@ struct Record {
 }
 
 fn read_csv(path: &Path) -> Result<(Vec<i32>, Vec<i32>), Box<dyn Error>> {
+    let s = std::fs::read_to_string(path)?;
     Ok(csv::ReaderBuilder::new()
         .has_headers(false)
-        .from_path(path)?
+        .from_reader(s.trim().replace("   ", ",").as_bytes())
         .deserialize()
         .map(|line| line as Result<Record, _>)
         .collect::<Result<Vec<Record>, _>>()?
