@@ -89,12 +89,13 @@ fn main() -> Result<(), Box<dyn Error>> {
         .map(|(result, numbers)| {
             if let Some(x) = recurse(*result, numbers[0], &numbers[1..]) {
                 (x, 0)
-            } else if let Some(x) = recurse_with_concat(*result, numbers[0], &numbers[1..]){
+            } else if let Some(x) = recurse_with_concat(*result, numbers[0], &numbers[1..]) {
                 (0, x)
             } else {
                 (0, 0)
             }
-        }).reduce(|| (0, 0), |acc, x| (acc.0 + x.0, acc.1 + x.1));
+        })
+        .reduce(|| (0, 0), |a, b| (a.0 + b.0, a.1 + b.1));
 
     println!("Result without concatenation: {}", results.0);
     println!("Result with concatenation: {}", results.0 + results.1);
