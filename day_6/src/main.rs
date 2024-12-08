@@ -3,7 +3,6 @@ use std::path::{Path, PathBuf};
 
 use bitflags::bitflags;
 use clap::{command, Parser};
-use indicatif::{ParallelProgressIterator, ProgressStyle};
 use itertools::Itertools;
 use rayon::prelude::*;
 
@@ -133,7 +132,6 @@ fn solve(map: &[Object], cols: usize, start_pos: usize, extra_obstruction: usize
 
 fn possible_obstructions(map: &[Object], cols: usize, start_pos: usize) -> usize {
     map.par_iter()
-        .progress_with_style(ProgressStyle::default_bar())
         .enumerate()
         .filter(|(_, x)| matches!(x, Object::Space))
         .map(|(idx, _)| solve(map, cols, start_pos, idx))

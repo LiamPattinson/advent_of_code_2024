@@ -55,7 +55,7 @@ fn concatenate(left: usize, right: usize) -> Result<usize, Box<dyn Error>> {
     Ok(format!("{left}{right}").parse::<usize>()?)
 }
 
-fn recurse_with_concatenation(target: usize, acc: usize, numbers: &[usize]) -> Option<usize> {
+fn recurse_with_concat(target: usize, acc: usize, numbers: &[usize]) -> Option<usize> {
     if numbers.is_empty() || acc > target {
         if target == acc {
             Some(acc)
@@ -67,9 +67,9 @@ fn recurse_with_concatenation(target: usize, acc: usize, numbers: &[usize]) -> O
         // If this happens, then this branch is definitely wrong, so just return None.
         if let Ok(concat) = concatenate(acc, numbers[0]) {
             match (
-                recurse_with_concatenation(target, acc + numbers[0], &numbers[1..]),
-                recurse_with_concatenation(target, acc * numbers[0], &numbers[1..]),
-                recurse_with_concatenation(target, concat, &numbers[1..]),
+                recurse_with_concat(target, acc + numbers[0], &numbers[1..]),
+                recurse_with_concat(target, acc * numbers[0], &numbers[1..]),
+                recurse_with_concat(target, concat, &numbers[1..]),
             ) {
                 (Some(x), _, _) | (_, Some(x), _) | (_, _, Some(x)) => Some(x),
                 _ => None,
@@ -84,18 +84,19 @@ fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
     let equations = read_equations(args.input.as_path())?;
 
-    let result = equations
-        .par_iter()
-        .map(|(result, numbers)| recurse(*result, numbers[0], &numbers[1..]).unwrap_or(0))
-        .sum::<usize>();
-    let result_with_concatenation = equations
+    let results = equations
         .par_iter()
         .map(|(result, numbers)| {
-            recurse_with_concatenation(*result, numbers[0], &numbers[1..]).unwrap_or(0)
-        })
-        .sum::<usize>();
+            if let Some(x) = recurse(*result, numbers[0], &numbers[1..]) {
+                (x, 0)
+            } else if let Some(x) = recurse_with_concat(*result, numbers[0], &numbers[1..]){
+                (0, x)
+            } else {
+                (0, 0)
+            }
+        }).reduce(|| (0, 0), |acc, x| (acc.0 + x.0, acc.1 + x.1));
 
-    println!("Result: {result}");
-    println!("Result with concatenation: {result_with_concatenation}");
+    println!("Result without concatenation: {}", results.0);
+    println!("Result with concatenation: {}", results.0 + results.1);
     Ok(())
 }
