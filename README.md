@@ -7,7 +7,7 @@ Extra challenges:
 - For loops? :thumbsdown: Unreadable chains of iterator adapters? :thumbsup:
 - Serde goes on everything
 - Never `unwrap()`, never `panic!`
-- (From day 6) :zap: Gotta go fast :zap: If you can speed it up with Rayon, you should
+- (From day 6) :zap: Gotta go fast :zap: If you can speed it up with `rayon`, you should
 
 ## Challenge Log
 
@@ -126,18 +126,38 @@ walked 4 times the number of grid cells!
 
 At this point I decided to go all out with optimisations. I used `bit_flags` to
 represent the direction they were facing, as then you can really efficiently encode
-all four possibilities and all combinations in a `u8`. I used Rayon to really speed
+all four possibilities and all combinations in a `u8`. I used `rayon` to really speed
 things up. I eventually got it down to just about 30ms on my 4-core machine, which I
 was really happy with! I could probably get it even faster if I tried only putting 
 an obstruction on the locations the guard stepped on in part 1.
 
 After this, I decided to add a new rule to my challenges: to aim for optimised
-solutions, and to use Rayon wherever it seems like a good idea.
+solutions, and to use `rayon` wherever it seems like a good idea.
 
 ### Day 7
 
 I found this one really easy compared to the previous days. It was just a simple
-recursion problem, and after slapping Rayon on it I could have the whole thing
+recursion problem, and after slapping `rayon` on it I could have the whole thing
 solved in less than 100ms. After my intial solution, I got it under 70ms by
 avoiding recalculating the inputs that were valid in part 1. There are almost
 certainly further optimisations to be made here.
+
+### Day 8
+
+This was an interesting problem. After the pain of working with characters in day 6,
+today I opted to read the 2D grid of data as bytes, so instead was working with `u8`
+throughout. I also decided to write my own struct to contain the 2D data and `impl`
+some common operations on it -- things like a `pos` function which converts a 2D
+coordinate into a 1D grid index, or `None` if the coordinate isn't on the grid.
+
+The second part of this challenge initially seemed really tricky, but then I realised
+it could be solved quite easily by finding the distance between two antennas in each
+dimension and dividing by their greatest-common-divisor (`num` crate to the rescue!).
+You can then simply walk in that direction and accumulate the answers until you fall
+off the grid. As I'd used `.permutations()` from the `itertools` crate to generate
+each antenna pairing, I didn't even need to bother checking in both directions.
+
+There are almost certainly ways to optimise this further, such as keeping a grid of
+bit flags to denote where unique antinodes exist and also where the 'resonant harmonics'
+nodes should be. I just tracked the unique locations in each case with a `HashSet`,
+and with `rayon` I can solve the whole thing in 2ms, which is good enough for me.
