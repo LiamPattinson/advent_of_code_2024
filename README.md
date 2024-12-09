@@ -162,6 +162,33 @@ bit flags to denote where unique antinodes exist and also where the 'resonant ha
 nodes should be. I just tracked the unique locations in each case with a `HashSet`,
 and with `rayon` I can solve the whole thing in 2ms, which is good enough for me.
 
+#### A follow-up
+
+After some thought, I've managed to get my solution to part 2 down to a really neat
+little function:
+
+```rust
+    // Takes the positions of each antenna, expressed as 1D indices
+    fn antinodes(&self, pos_1: usize, pos_2: usize) -> Vec<usize> {
+        // Get the 2D coordinate of antenna 1
+        let (row_1, col_1) = self.coord(pos_1);
+        // Determine the closest node at which 'resonant harmonics' occurs
+        // Uses num::integer::gcd internally
+        let nearest = self.nearest_harmonic(pos_1, pos_2);
+        // Iterate from 1 to infinity, and -- while we're still on the grid --
+        // generate new harmonics
+        (1..)
+            .map_while(|harmonic| {
+                self.pos(row_1 + harmonic * nearest.0, col_1 + harmonic * nearest.1)
+            })
+            .collect()
+    }
+```
+
+The `map_while` adapter is definitely one to remember! There are probably a few
+awkward bits in earlier challenges that could have been simplified by combining
+this with integer slicing.
+
 ### Day 9
 
 #### Part 1

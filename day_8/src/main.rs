@@ -72,17 +72,12 @@ impl Map {
     fn antinodes(&self, pos_1: usize, pos_2: usize) -> Vec<usize> {
         // Accounts for 'resonant harmonics'
         let (row_1, col_1) = self.coord(pos_1);
-        let nearest_harmonic = self.nearest_harmonic(pos_1, pos_2);
-        let mut result = Vec::new();
-        let mut harmonic = nearest_harmonic;
-        while let Some(pos) = self.pos(row_1 + harmonic.0, col_1 + harmonic.1) {
-            result.push(pos);
-            harmonic = (
-                harmonic.0 + nearest_harmonic.0,
-                harmonic.1 + nearest_harmonic.1,
-            );
-        }
-        result
+        let nearest = self.nearest_harmonic(pos_1, pos_2);
+        (1..)
+            .map_while(|harmonic| {
+                self.pos(row_1 + harmonic * nearest.0, col_1 + harmonic * nearest.1)
+            })
+            .collect()
     }
 }
 
