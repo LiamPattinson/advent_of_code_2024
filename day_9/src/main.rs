@@ -38,7 +38,8 @@ fn not_space(x: &&usize) -> bool {
     **x != SPACE
 }
 
-fn compact(filesystem: &[usize]) -> Vec<usize> {
+fn compact_and_checksum(diskmap: &[u8]) -> usize {
+    let filesystem = gen_filesystem(diskmap);
     let len = filesystem.iter().filter(not_space).count();
     let mut rev_iter = filesystem.iter().rev().filter(not_space);
     filesystem
@@ -51,12 +52,6 @@ fn compact(filesystem: &[usize]) -> Vec<usize> {
             }
         })
         .take(len)
-        .collect()
-}
-
-fn checksum(filesystem: &[usize]) -> usize {
-    filesystem
-        .iter()
         .enumerate()
         .map(|(idx, val)| idx * val)
         .sum()
@@ -65,8 +60,7 @@ fn checksum(filesystem: &[usize]) -> usize {
 fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
     let diskmap = read_diskmap(args.path.as_path())?;
-    let filesystem = gen_filesystem(&diskmap);
-    let compacted = compact(&filesystem);
-    println!("Checksum: {}", checksum(&compacted));
+    let checksum_v1 = compact_and_checksum(&diskmap);
+    println!("Checksum v1: {checksum_v1}");
     Ok(())
 }
