@@ -161,3 +161,47 @@ There are almost certainly ways to optimise this further, such as keeping a grid
 bit flags to denote where unique antinodes exist and also where the 'resonant harmonics'
 nodes should be. I just tracked the unique locations in each case with a `HashSet`,
 and with `rayon` I can solve the whole thing in 2ms, which is good enough for me.
+
+### Day 9
+
+#### Part 1
+
+This problem had me stumped for a while. After getting the filesystem ready, I tried a
+few solutions to build the compacted filesystem with clever `itertools` magic. I first
+had the bright idea of setting empty space to be `usize::MAX`, so that any number
+compared against it would take priority. I also figured out that the following two
+iterators needed to be merged:
+
+- `filesystem.iter()`
+- `filesystem.iter().rev().filter(not_space)`
+
+I first tried using `merge()` from `itertools`, but with no luck -- as soon as the first
+iterator hits `usize::MAX`, it freezes while the second iterator exhausts itself! I then
+tried using a simple `zip()` but this didn't work either, as then both iterators would
+march regardless of whether their value had been taken. In the end, I had to assign the
+second iterator to a variable and call `next()` whenever the first iterator returned
+`usize::MAX`:
+
+```rust
+fn compact(filesystem: &[usize]) -> Vec<usize> {
+    let len = filesystem.iter().filter(not_space).count();
+    let mut rev_iter = filesystem.iter().rev().filter(not_space);
+    filesystem
+        .iter()
+        .map(|x| {
+            if not_space(&x) {
+                *x
+            } else {
+                *rev_iter.next().unwrap_or(&SPACE) // unwrap should never fail
+            }
+        })
+        .take(len)
+        .collect()
+}
+```
+
+I feel there must be a cleaner solution than this, but it's solving the problem in just
+a few milliseconds, so at least it seems somewhat efficient.
+
+I expect part 2 to be a huge pain, as the data structure I used for part 1 doesn't
+lend itself nicely to this problem.
