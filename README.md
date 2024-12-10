@@ -205,8 +205,8 @@ iterators needed to be merged:
 I first tried using `merge()` from `itertools`, but with no luck -- as soon as the first
 iterator hits `usize::MAX`, it freezes while the second iterator exhausts itself! I then
 tried using a simple `zip()` but this didn't work either, as then both iterators would
-march regardless of whether their value had been taken. In the end, I had to assign the
-second iterator to a variable and call `next()` whenever the first iterator returned
+march regardless of whether their value had been taken. In the end, I had to manually
+keep track of the second iterator and call `next()` whenever the first iterator returned
 `usize::MAX`:
 
 ```rust
@@ -215,15 +215,17 @@ fn compact(filesystem: &[usize]) -> Vec<usize> {
     let mut rev_iter = filesystem.iter().rev().filter(not_space);
     filesystem
         .iter()
-        .map(|x| {
+        .scan(filesystem.iter().rev().filter(not_space), |rev_iter, x| {
             if not_space(&x) {
-                *x
+                Some(*x)
             } else {
-                *rev_iter.next().unwrap_or(&SPACE) // unwrap should never fail
+                Some(*rev_iter.next().unwrap_or(&SPACE)) // unwrap should never fail
             }
         })
         .take(len)
-        .collect()
+        .enumerate()
+        .map(|(idx, val)| idx * val)
+        .sum()
 }
 ```
 
@@ -232,3 +234,19 @@ a few milliseconds, so at least it seems somewhat efficient.
 
 I expect part 2 to be a huge pain, as the data structure I used for part 1 doesn't
 lend itself nicely to this problem.
+
+#### Part 2
+
+I'll admit that I had to ask a friend for help with this one, as I couldn't think of a
+clean way to solve it with my data structure from part 1. The solution was to not bother
+building the filesystem, but to instead work directly with the diskmap provided as an
+input.
+
+Even knowing how to solve this, I found it to be a real challenge. My solution makes
+significant use of the iterator `scan()` function, which works like `fold()` and
+`reduce()` but the state passed between iterations is persistent and mutable. This
+allowed me to keep track of mutable versions of the diskmap and a `Vec` of the start
+locations of each file block/space and then modify them between iterations. In the end,
+I don't think my solution is particularly elegant, and there's certainly room for
+performance improvements, but it got the job done. Running on the release profile, it's
+solving it in about 0.1s, which isn't too bad.
