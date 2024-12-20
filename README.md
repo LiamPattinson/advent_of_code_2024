@@ -250,3 +250,18 @@ locations of each file block/space and then modify them between iterations. In t
 I don't think my solution is particularly elegant, and there's certainly room for
 performance improvements, but it got the job done. Running on the release profile, it's
 solving it in about 0.1s, which isn't too bad.
+
+### Day 10
+
+After having a hard time with Day 9 and feeling that advent of code was taking up too
+much of my time, I took a break before tackling Day 10. It turned out to be much easier,
+and like many people I essentially solved part 2 before solving part 1.
+
+My solution was to start at each zero, recursively walk upwards in all four directions,
+and collect all peaks. To solve part 1, I had to collect each discovered peak into a
+`HashSet` in order to find the unique zero-to-nine links, and then count the number of
+unique links to get my answer. Part 2 was the same solution, but without collecting into
+a `HashSet`.
+
+On top of being a very easy problem to solve, it also runs incredibly quickly. With
+Rayon, this one only takes a millisecond or two on my machine!
